@@ -35,12 +35,16 @@ const defaultSettingsKeyTypes = [
     {key: 'password', type: 'private'},
     {key: 'public_hash', type: 'private'},
     {key: 'default_content_visibility', type: 'members'},
-    {key: 'members_allow_free_signup', type: 'members'},
+    {key: 'members_signup_access', type: 'members'},
     {key: 'members_from_address', type: 'members'},
     {key: 'members_support_address', type: 'members'},
     {key: 'members_reply_address', type: 'members'},
     {key: 'members_paid_signup_redirect', type: 'members'},
     {key: 'members_free_signup_redirect', type: 'members'},
+    {key: 'members_free_price_name', type: 'members'},
+    {key: 'members_free_price_description', type: 'members'},
+    {key: 'members_monthly_price_id', type: 'members'},
+    {key: 'members_yearly_price_id', type: 'members'},
     {key: 'stripe_product_name', type: 'members'},
     {key: 'stripe_plans', type: 'members'},
     {key: 'stripe_secret_key', type: 'members'},
@@ -75,7 +79,11 @@ const defaultSettingsKeyTypes = [
     {key: 'newsletter_body_font_category', type: 'newsletter'},
     {key: 'newsletter_footer_content', type: 'newsletter'},
     {key: 'firstpromoter', type: 'firstpromoter'},
-    {key: 'firstpromoter_id', type: 'firstpromoter'}
+    {key: 'firstpromoter_id', type: 'firstpromoter'},
+    {key: 'oauth_client_id', type: 'oauth'},
+    {key: 'oauth_client_secret', type: 'oauth'},
+    {key: 'editor_default_email_recipients', type: 'editor'},
+    {key: 'editor_default_email_recipients_filter', type: 'editor'}
 ];
 
 describe('Settings API (v3)', function () {

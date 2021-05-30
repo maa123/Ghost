@@ -10,6 +10,7 @@ module.exports = {
     edit: createSerializer('edit', singleMember),
     add: createSerializer('add', singleMember),
     editSubscription: createSerializer('editSubscription', singleMember),
+    createSubscription: createSerializer('createSubscription', singleMember),
     bulkDestroy: createSerializer('bulkDestroy', passthrough),
 
     exportCSV: createSerializer('exportCSV', exportCSV),
@@ -78,23 +79,9 @@ function exportCSV(page, _apiConfig, frame) {
 function serializeMember(member, options) {
     const json = member.toJSON(options);
 
-    let comped = false;
-    if (json.subscriptions) {
-        const hasCompedSubscription = !!json.subscriptions.find(
-            /**
-             * @param {SerializedMemberStripeSubscription} sub
-             */
-            function (sub) {
-                return sub.plan.nickname === 'Complimentary' && sub.status === 'active';
-            }
-        );
-        if (hasCompedSubscription) {
-            comped = true;
-        }
-    }
     const subscriptions = json.subscriptions || [];
 
-    return {
+    const serialized = {
         id: json.id,
         uuid: json.uuid,
         email: json.email,
@@ -107,13 +94,18 @@ function serializeMember(member, options) {
         labels: json.labels,
         subscriptions: subscriptions,
         avatar_image: json.avatar_image,
-        comped: comped,
         email_count: json.email_count,
         email_opened_count: json.email_opened_count,
         email_open_rate: json.email_open_rate,
         email_recipients: json.email_recipients,
         status: json.status
     };
+
+    if (json.products) {
+        serialized.products = json.products;
+    }
+
+    return serialized;
 }
 
 /**
@@ -154,13 +146,20 @@ function createSerializer(debugString, serialize) {
  * @prop {string} updated_at
  * @prop {string[]} labels
  * @prop {SerializedMemberStripeSubscription[]} subscriptions
+ * @prop {SerializedMemberProduct[]=} products
  * @prop {string} avatar_image
- * @prop {boolean} comped
  * @prop {number} email_count
  * @prop {number} email_opened_count
  * @prop {number} email_open_rate
  * @prop {null|SerializedEmailRecipient[]} email_recipients
  * @prop {'free'|'paid'} status
+ */
+
+/**
+ * @typedef {Object} SerializedMemberProduct
+ * @prop {string} id
+ * @prop {string} name
+ * @prop {string} slug
  */
 
 /**
@@ -183,11 +182,16 @@ function createSerializer(debugString, serialize) {
  * @prop {null|string} customer.name
  * @prop {string} customer.email
  *
- * @prop {Object} plan
- * @prop {string} plan.id
- * @prop {string} plan.nickname
- * @prop {number} plan.amount
- * @prop {string} plan.currency
+ * @prop {Object} price
+ * @prop {string} price.id
+ * @prop {string} price.nickname
+ * @prop {number} price.amount
+ * @prop {string} price.interval
+ * @prop {string} price.currency
+ *
+ * @prop {Object} price.product
+ * @prop {string} price.product.id
+ * @prop {string} price.product.product_id
  */
 
 /**

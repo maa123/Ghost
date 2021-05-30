@@ -1,6 +1,15 @@
 {
     "models": [
         {
+            "name": "Product",
+            "entries": [
+                {
+                    "name":             "Default Product",
+                    "slug":             "default-product"
+                }
+            ]
+        },
+        {
             "name": "Tag",
             "entries": [
                 {
@@ -764,6 +773,7 @@
                     "email_preview": "all",
                     "email": "all",
                     "snippet": "all",
+                    "label": ["browse", "read"],
                     "product": ["browse", "read"]
                 },
                 "Author": {

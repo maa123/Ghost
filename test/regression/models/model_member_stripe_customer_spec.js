@@ -2,7 +2,10 @@ const should = require('should');
 const BaseModel = require('../../../core/server/models/base');
 const {Member} = require('../../../core/server/models/member');
 const {MemberStripeCustomer} = require('../../../core/server/models/member-stripe-customer');
+const {Product} = require('../../../core/server/models/product');
 const {StripeCustomerSubscription} = require('../../../core/server/models/stripe-customer-subscription');
+const {StripePrice} = require('../../../core/server/models/stripe-price');
+const {StripeProduct} = require('../../../core/server/models/stripe-product');
 
 const testUtils = require('../../utils');
 
@@ -12,41 +15,44 @@ describe('MemberStripeCustomer Model', function run() {
     afterEach(testUtils.teardownDb);
 
     describe('subscriptions', function () {
-        // For some reason the initial .add of MemberStripeCustomer is **not** adding a StripeCustomerSubscription :(
-        it.skip('Is correctly mapped to the stripe subscriptions', async function () {
+        it('Is correctly mapped to the stripe subscriptions', async function () {
             const context = testUtils.context.admin;
 
             const member = await Member.add({
                 email: 'test@test.test'
             });
 
+            const product = await Product.add({
+                name: 'Ghost Product',
+                slug: 'ghost-product'
+            }, context);
+
+            await StripeProduct.add({
+                product_id: product.get('id'),
+                stripe_product_id: 'fake_product_id'
+            }, context);
+
+            await StripePrice.add({
+                stripe_price_id: 'fake_plan_id',
+                stripe_product_id: 'fake_product_id',
+                amount: 5000,
+                interval: 'monthly',
+                currency: 'USD',
+                active: 1,
+                nickname: 'Monthly',
+                type: 'recurring'
+            }, context);
+
             await MemberStripeCustomer.add({
                 member_id: member.get('id'),
-                customer_id: 'fake_customer_id',
-                subscriptions: [{
-                    subscription_id: 'fake_subscription_id1',
-                    plan_id: 'fake_plan_id',
-                    plan_amount: 1337,
-                    plan_nickname: 'e-LEET',
-                    plan_interval: 'year',
-                    plan_currency: 'btc',
-                    status: 'active',
-                    start_date: new Date(),
-                    current_period_end: new Date(),
-                    cancel_at_period_end: false
-                }]
+                customer_id: 'fake_customer_id'
             }, context);
-
-            const subscription1 = await StripeCustomerSubscription.findOne({
-                subscription_id: 'fake_subscription_id1'
-            }, context);
-
-            should.exist(subscription1, 'StripeCustomerSubscription should have been created');
 
             await StripeCustomerSubscription.add({
                 customer_id: 'fake_customer_id',
-                subscription_id: 'fake_subscription_id2',
+                subscription_id: 'fake_subscription_id',
                 plan_id: 'fake_plan_id',
+                stripe_price_id: 'fake_plan_id',
                 plan_amount: 1337,
                 plan_nickname: 'e-LEET',
                 plan_interval: 'year',
@@ -67,10 +73,9 @@ describe('MemberStripeCustomer Model', function run() {
 
             const subscriptions = customer.related('subscriptions');
 
-            should.equal(subscriptions.length, 2, 'Should  be two subscriptions');
+            should.equal(subscriptions.length, 1, 'Should  be two subscriptions');
 
-            should.equal(subscriptions.models[0].get('subscription_id'), 'fake_subscription_id1');
-            should.equal(subscriptions.models[1].get('subscription_id'), 'fake_subscription_id2');
+            should.equal(subscriptions.models[0].get('subscription_id'), 'fake_subscription_id');
         });
     });
 
@@ -119,10 +124,32 @@ describe('MemberStripeCustomer Model', function run() {
 
             should.exist(customer, 'Customer should have been created');
 
+            const product = await Product.add({
+                name: 'Ghost Product',
+                slug: 'ghost-product'
+            }, context);
+
+            await StripeProduct.add({
+                product_id: product.get('id'),
+                stripe_product_id: 'fake_product_id'
+            }, context);
+
+            await StripePrice.add({
+                stripe_price_id: 'fake_plan_id',
+                stripe_product_id: 'fake_product_id',
+                amount: 5000,
+                interval: 'monthly',
+                active: 1,
+                nickname: 'Monthly',
+                currency: 'USD',
+                type: 'recurring'
+            }, context);
+
             await StripeCustomerSubscription.add({
                 customer_id: 'fake_customer_id',
                 subscription_id: 'fake_subscription_id',
                 plan_id: 'fake_plan_id',
+                stripe_price_id: 'fake_plan_id',
                 plan_amount: 1337,
                 plan_nickname: 'e-LEET',
                 plan_interval: 'year',

@@ -14,16 +14,14 @@ const knexMigrator = new KnexMigrator();
 // Ghost Internals
 const config = require('../../core/shared/config');
 const boot = require('../../core/boot');
-const {events} = require('../../core/server/lib/common');
 const db = require('../../core/server/data/db');
 const models = require('../../core/server/models');
-const notify = require('../../core/server/notify');
 const urlService = require('../../core/frontend/services/url');
 const settingsService = require('../../core/server/services/settings');
 const frontendSettingsService = require('../../core/frontend/services/settings');
 const settingsCache = require('../../core/server/services/settings/cache');
 const web = require('../../core/server/web');
-const themes = require('../../core/frontend/services/themes');
+const themeService = require('../../core/server/services/themes');
 const limits = require('../../core/server/services/limits');
 
 // Other Test Utilities
@@ -194,7 +192,7 @@ const restartModeGhostStart = async () => {
 
     // Reload the frontend
     await frontendSettingsService.init();
-    await themes.init();
+    await themeService.init();
 
     // Reload the URL service & wait for it to be ready again
     // @TODO: Prob B: why/how is this different to urlService.resetGenerators?
@@ -205,7 +203,7 @@ const restartModeGhostStart = async () => {
     web.shared.middlewares.customRedirects.reload();
 
     // Trigger themes to load again
-    themes.loadInactiveThemes();
+    themeService.loadInactiveThemes();
 
     // Reload limits service
     limits.init();
@@ -233,9 +231,7 @@ const freshModeGhostStart = async (options) => {
     await knexMigrator.reset({force: true});
 
     // Stop the serve (forceStart Mode)
-    if (ghostServer && ghostServer.httpServer) {
-        await ghostServer.stop();
-    }
+    await stopGhost();
 
     // Reset the settings cache
     // @TODO: Prob A: why/how is this different to using settingsService.init() and why to do we need this?
@@ -292,6 +288,7 @@ const startGhost = async (options) => {
 const stopGhost = async () => {
     if (ghostServer && ghostServer.httpServer) {
         await ghostServer.stop();
+        delete require.cache[require.resolve('../../core/app')];
         urlService.resetGenerators();
     }
 };
@@ -356,19 +353,6 @@ module.exports = {
         editor: {user: {roles: [DataGenerator.Content.roles[1]]}},
         author: {user: {roles: [DataGenerator.Content.roles[2]]}},
         contributor: {user: {roles: [DataGenerator.Content.roles[4]]}}
-    },
-    users: {
-        ids: {
-            owner: DataGenerator.Content.users[0].id,
-            admin: DataGenerator.Content.users[1].id,
-            editor: DataGenerator.Content.users[2].id,
-            author: DataGenerator.Content.users[3].id,
-            admin2: DataGenerator.Content.users[6].id,
-            editor2: DataGenerator.Content.users[4].id,
-            author2: DataGenerator.Content.users[5].id,
-            contributor: DataGenerator.Content.users[7].id,
-            contributor2: DataGenerator.Content.users[8].id
-        }
     },
     roles: {
         ids: {
