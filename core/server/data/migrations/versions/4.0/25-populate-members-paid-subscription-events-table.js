@@ -1,7 +1,13 @@
 const {chunk} = require('lodash');
 const ObjectID = require('bson-objectid');
 const {createTransactionalMigration} = require('../../utils');
-const logging = require('../../../../../shared/logging');
+const logging = require('@tryghost/logging');
+const errors = require('@tryghost/errors');
+const tpl = require('@tryghost/tpl');
+
+const messages = {
+    unknownSubscriptionIntervalError: 'Unknown Subscription interval "{interval}" found.'
+};
 
 module.exports = createTransactionalMigration(
     async function up(knex) {
@@ -38,7 +44,11 @@ module.exports = createTransactionalMigration(
                 return amount * 30;
             }
 
-            throw new Error(`Unknown Subscription interval "${interval}" found.`);
+            throw new errors.InternalServerError({
+                message: tpl(messages.unknownSubscriptionIntervalError , {
+                    interval
+                })
+            });
         }
 
         const allEvents = allSubscriptions.reduce((allEventsAcc, subscription) => {
@@ -106,6 +116,7 @@ module.exports = createTransactionalMigration(
 
         const eventChunks = chunk(allEvents, chunkSize);
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const events of eventChunks) {
             await knex.insert(events).into('members_paid_subscription_events');
         }

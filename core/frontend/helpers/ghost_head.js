@@ -2,12 +2,19 @@
 // Usage: `{{ghost_head}}`
 //
 // Outputs scripts and other assets at the top of a Ghost theme
-const {metaData, escapeExpression, SafeString, logging, settingsCache, config, blogIcon, urlUtils} = require('../services/proxy');
+const {metaData, settingsCache, config, blogIcon, urlUtils, labs} = require('../services/proxy');
+const {escapeExpression, SafeString} = require('../services/rendering');
+
+// BAD REQUIRE
+// @TODO fix this require
+const cardAssetService = require('../services/card-assets');
+
+const logging = require('@tryghost/logging');
 const _ = require('lodash');
-const debug = require('ghost-ignition').debug('ghost_head');
+const debug = require('@tryghost/debug')('ghost_head');
 const templateStyles = require('./tpl/styles');
 
-const getMetaData = metaData.get;
+const {get: getMetaData, getAssetUrl} = metaData;
 
 function writeMetaTag(property, content, type) {
     type = type || property.substring(0, 7) === 'twitter' ? 'name' : 'property';
@@ -46,7 +53,7 @@ function getMembersHelper(data) {
     const stripeConnectAccountId = settingsCache.get('stripe_connect_account_id');
     const colorString = _.has(data, 'site._preview') && data.site.accent_color ? ` data-accent-color="${data.site.accent_color}"` : '';
     const portalUrl = config.get('portal:url');
-    let membersHelper = `<script defer src="${portalUrl}" data-ghost="${urlUtils.getSiteUrl()}"${colorString}></script>`;
+    let membersHelper = `<script defer src="${portalUrl}" data-ghost="${urlUtils.getSiteUrl()}"${colorString} crossorigin="anonymous"></script>`;
     membersHelper += (`<style id="gh-members-styles">${templateStyles}</style>`);
     if ((!!stripeDirectSecretKey && !!stripeDirectPublishableKey) || !!stripeConnectAccountId) {
         membersHelper += '<script async src="https://js.stripe.com/v3/"></script>';
@@ -116,7 +123,7 @@ module.exports = function ghost_head(options) { // eslint-disable-line camelcase
      *   - getMetaData(dataRoot, dataRoot) -> yes that looks confusing!
      *   - there is a very mixed usage of `data.context` vs. `root.context` vs `root._locals.context` vs. `this.context`
      *   - NOTE: getMetaData won't live here anymore soon, see https://github.com/TryGhost/Ghost/issues/8995
-     *   - therefor we get rid of using `getMetaData(this, dataRoot)`
+     *   - therefore we get rid of using `getMetaData(this, dataRoot)`
      *   - dataRoot has access to *ALL* locals, see function description
      *   - it should not break anything
      */
@@ -176,6 +183,12 @@ module.exports = function ghost_head(options) { // eslint-disable-line camelcase
             head.push('<meta name="generator" content="Ghost ' +
                 escapeExpression(safeVersion) + '" />');
 
+            // Ghost analytics tag
+            if (labs.isSet('membersActivity')) {
+                const postId = (dataRoot && dataRoot.post) ? dataRoot.post.id : '';
+                head.push(writeMetaTag('ghost-analytics-id', postId, 'name'));
+            }
+
             head.push('<link rel="alternate" type="application/rss+xml" title="' +
                 escapeExpression(meta.site.title) + '" href="' +
                 escapeExpression(meta.rssUrl) + '" />');
@@ -183,6 +196,14 @@ module.exports = function ghost_head(options) { // eslint-disable-line camelcase
             // no code injection for amp context!!!
             if (!_.includes(context, 'amp')) {
                 head.push(getMembersHelper(options.data));
+
+                // @TODO do this in a more "frameworky" way
+                if (cardAssetService.hasFile('js')) {
+                    head.push(`<script async src="${getAssetUrl('public/cards.min.js')}"></script>`);
+                }
+                if (cardAssetService.hasFile('css')) {
+                    head.push(`<link rel="stylesheet" type="text/css" href="${getAssetUrl('public/cards.min.css')}">`);
+                }
 
                 if (!_.isEmpty(globalCodeinjection)) {
                     head.push(globalCodeinjection);
@@ -220,3 +241,5 @@ module.exports = function ghost_head(options) { // eslint-disable-line camelcase
             return new SafeString(head.join('\n    ').trim());
         });
 };
+
+module.exports.async = true;

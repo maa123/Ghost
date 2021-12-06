@@ -1,5 +1,5 @@
 const {createIrreversibleMigration} = require('../../utils');
-const logging = require('../../../../../shared/logging');
+const logging = require('@tryghost/logging');
 const ObjectID = require('bson-objectid');
 const crypto = require('crypto');
 
@@ -77,6 +77,7 @@ module.exports = createIrreversibleMigration(
         };
         await knex('api_keys').insert(adminKey);
 
+        // eslint-disable-next-line no-restricted-syntax
         for (let i = 0; i < orphanedWebhooks.length; i++) {
             const webhook = orphanedWebhooks[i];
 

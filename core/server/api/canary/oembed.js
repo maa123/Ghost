@@ -1,8 +1,26 @@
 const config = require('../../../shared/config');
 const externalRequest = require('../../lib/request-external');
-const i18n = require('../../../shared/i18n');
+
 const OEmbed = require('../../services/oembed');
-const oembed = new OEmbed({config, externalRequest, i18n});
+const oembed = new OEmbed({config, externalRequest});
+
+const NFT = require('../../services/nft-oembed');
+const nft = new NFT({
+    config: {
+        apiKey: config.get('opensea').privateReadOnlyApiKey
+    }
+});
+
+const Twitter = require('../../services/twitter-embed');
+const twitter = new Twitter({
+    config: {
+        bearerToken: config.get('twitter').privateReadOnlyToken
+    },
+    logging: require('@tryghost/logging')
+});
+
+oembed.registerProvider(nft);
+oembed.registerProvider(twitter);
 
 module.exports = {
     docName: 'oembed',
@@ -17,22 +35,7 @@ module.exports = {
         query({data}) {
             let {url, type} = data;
 
-            if (type === 'bookmark') {
-                return oembed.fetchBookmarkData(url)
-                    .catch(oembed.errorHandler(url));
-            }
-
-            return oembed.fetchOembedData(url).then((response) => {
-                if (!response && !type) {
-                    return oembed.fetchBookmarkData(url);
-                }
-                return response;
-            }).then((response) => {
-                if (!response) {
-                    return oembed.unknownProvider(url);
-                }
-                return response;
-            }).catch(oembed.errorHandler(url));
+            return oembed.fetchOembedDataFromUrl(url, type);
         }
     }
 };

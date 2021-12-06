@@ -1,4 +1,4 @@
-const logging = require('../../../../../shared/logging');
+const logging = require('@tryghost/logging');
 const urlUtils = require('../../../../../shared/url-utils');
 const mobiledocLib = require('../../../../lib/mobiledoc');
 const {createIrreversibleMigration} = require('../../utils');
@@ -18,6 +18,7 @@ module.exports = createIrreversibleMigration(async (knex) => {
         // pushing all queries into the query builder buffer in parallel
         // https://stackoverflow.com/questions/54105280/how-to-loop-through-multi-line-sql-query-and-use-them-in-knex-transactions
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const postIdRow of postIdRows) {
             const {id} = postIdRow;
             const [post] = await knex('posts')
@@ -33,7 +34,7 @@ module.exports = createIrreversibleMigration(async (knex) => {
                 ]);
 
             /* eslint-disable camelcase */
-            const mobiledoc = urlUtils.mobiledocToTransformReady(post.mobiledoc);
+            const mobiledoc = urlUtils.mobiledocToTransformReady(post.mobiledoc, {cardTransformers: mobiledocLib.cards});
             const custom_excerpt = urlUtils.htmlToTransformReady(post.custom_excerpt);
             const codeinjection_head = urlUtils.htmlToTransformReady(post.codeinjection_head);
             const codeinjection_foot = urlUtils.htmlToTransformReady(post.codeinjection_foot);
@@ -80,6 +81,7 @@ module.exports = createIrreversibleMigration(async (knex) => {
             .forUpdate()
             .select('id');
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const userIdRow of userIdRows) {
             const {id} = userIdRow;
             const [user] = await knex('users')
@@ -108,6 +110,7 @@ module.exports = createIrreversibleMigration(async (knex) => {
             .forUpdate()
             .select('id');
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const tagIdRow of tagIdRows) {
             const {id} = tagIdRow;
             const [tag] = await knex('tags')
@@ -148,6 +151,7 @@ module.exports = createIrreversibleMigration(async (knex) => {
             .forUpdate()
             .select('id');
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const snippetIdRow of snippetIdRows) {
             const {id} = snippetIdRow;
             const [snippet] = await knex('snippets')
@@ -180,6 +184,7 @@ module.exports = createIrreversibleMigration(async (knex) => {
                 'twitter_image'
             ]);
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const settingRow of settingsRows) {
             let {key, value} = settingRow;
 

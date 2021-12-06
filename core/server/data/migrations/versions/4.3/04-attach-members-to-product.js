@@ -1,7 +1,7 @@
 const {createTransactionalMigration} = require('../../utils');
 const ObjectID = require('bson-objectid');
 const {chunk} = require('lodash');
-const logging = require('../../../../../shared/logging');
+const logging = require('@tryghost/logging');
 
 module.exports = createTransactionalMigration(
     async function up(knex) {
@@ -38,6 +38,7 @@ module.exports = createTransactionalMigration(
         const chunkSize = 333;
         const memberProductRelationsChunks = chunk(memberProductRelations, chunkSize);
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const relations of memberProductRelationsChunks) {
             await knex.insert(relations).into('members_products');
         }

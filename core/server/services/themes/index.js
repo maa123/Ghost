@@ -1,97 +1,54 @@
-const _ = require('lodash');
-const debug = require('ghost-ignition').debug('themes');
-const i18n = require('../../../shared/i18n');
-const logging = require('../../../shared/logging');
-const errors = require('@tryghost/errors');
+const activate = require('./activate');
 const themeLoader = require('./loader');
-const bridge = require('../../../bridge');
-const validate = require('./validate');
-const list = require('./list');
-const settingsCache = require('../settings/cache');
+const storage = require('./storage');
+const getJSON = require('./to-json');
+const installer = require('./installer');
+
+const settingsCache = require('../../../shared/settings-cache');
+
+// Needed for theme re-activation after customThemeSettings flag is toggled
+// @TODO: remove when customThemeSettings flag is removed
+const labs = require('../../../shared/labs');
+const events = require('../../lib/common/events');
+let _lastLabsValue;
 
 module.exports = {
-    // Init themes module
-    // TODO: move this once we're clear what needs to happen here
-    init: function initThemes() {
-        const activeThemeName = settingsCache.get('active_theme');
+    /*
+     * Load the currently active theme
+     */
+    init: async () => {
+        const themeName = settingsCache.get('active_theme');
 
-        debug('init themes', activeThemeName);
-        // Just read the active theme for now
-        return themeLoader
-            .loadOneTheme(activeThemeName)
-            .then(function activeThemeHasLoaded(theme) {
-                // Validate
-                return validate
-                    .check(theme)
-                    .then(function validationSuccess(checkedTheme) {
-                        if (!validate.canActivate(checkedTheme)) {
-                            const checkError = new errors.ThemeValidationError({
-                                message: i18n.t('errors.middleware.themehandler.invalidTheme', {theme: activeThemeName}),
-                                errorDetails: Object.assign(
-                                    _.pick(checkedTheme, ['checkedVersion', 'name', 'path', 'version']), {
-                                        errors: checkedTheme.results.error
-                                    }
-                                )
-                            });
+        /**
+         * When customThemeSettings labs flag is toggled we need to re-validate and activate
+         * the active theme so that it's settings are read and synced
+         *
+         * @TODO: remove when customThemeSettings labs flag is removed
+         */
+        _lastLabsValue = labs.isSet('customThemeSettings');
+        events.on('settings.labs.edited', () => {
+            if (labs.isSet('customThemeSettings') !== _lastLabsValue) {
+                _lastLabsValue = labs.isSet('customThemeSettings');
 
-                            logging.error(checkError);
+                activate.activate(settingsCache.get('active_theme'));
+            }
+        });
 
-                            bridge.activateTheme(theme, checkedTheme, checkError);
-                        } else {
-                            // CASE: inform that the theme has errors, but not fatal (theme still works)
-                            if (checkedTheme.results.error.length) {
-                                logging.warn(new errors.ThemeValidationError({
-                                    errorType: 'ThemeWorksButHasErrors',
-                                    message: i18n.t('errors.middleware.themehandler.themeHasErrors', {theme: activeThemeName}),
-                                    errorDetails: Object.assign(
-                                        _.pick(checkedTheme, ['checkedVersion', 'name', 'path', 'version']), {
-                                            errors: checkedTheme.results.error
-                                        }
-                                    )
-                                }));
-                            }
-
-                            debug('Activating theme (method A on boot)', activeThemeName);
-
-                            bridge.activateTheme(theme, checkedTheme);
-                        }
-                    });
-            })
-            .catch(errors.NotFoundError, function (err) {
-                // CASE: active theme is missing, we don't want to exit because the admin panel will still work
-                err.message = i18n.t('errors.middleware.themehandler.missingTheme', {theme: activeThemeName});
-                logging.error(err);
-            })
-            .catch(function (err) {
-                // CASE: theme threw an odd error, we don't want to exit because the admin panel will still work
-                // This is the absolute catch-all, at this point, we do not know what went wrong!
-                logging.error(err);
-            });
+        return activate.loadAndActivate(themeName);
     },
-    getJSON: require('./to-json'),
-    activate: function (themeName) {
-        const loadedTheme = list.get(themeName);
-
-        if (!loadedTheme) {
-            return Promise.reject(new errors.ValidationError({
-                message: i18n.t('notices.data.validation.index.themeCannotBeActivated', {themeName: themeName}),
-                errorDetails: themeName
-            }));
-        }
-
-        return validate.checkSafe(loadedTheme)
-            .then((checkedTheme) => {
-                debug('Activating theme (method B on API "activate")', themeName);
-                bridge.activateTheme(loadedTheme, checkedTheme);
-
-                return checkedTheme;
-            });
-    },
-    storage: require('./storage'),
     /**
      * Load all inactive themes
      */
-    loadInactiveThemes: async () => {
-        return await themeLoader.loadAllThemes();
+    loadInactiveThemes: themeLoader.loadAllThemes,
+    /**
+     * Methods used in the API
+     */
+    api: {
+        getJSON,
+        activate: activate.activate,
+        getZip: storage.getZip,
+        setFromZip: storage.setFromZip,
+        installFromGithub: installer.installFromGithub,
+        destroy: storage.destroy
     }
 };

@@ -343,6 +343,10 @@
             "defaultValue": "[\"free\"]",
             "type": "array"
         },
+        "portal_products": {
+            "defaultValue": "[]",
+            "type": "array"
+        },
         "portal_button_style": {
             "defaultValue": "icon-and-text",
             "validations": {
@@ -380,6 +384,15 @@
                 "isIn": [["true", "false"]]
             },
             "type": "boolean"
+        },
+        "email_verification_required": {
+            "defaultValue": "false",
+            "validations": {
+                "isEmpty": false,
+                "isIn": [["true", "false"]]
+            },
+            "type": "boolean",
+            "flags": "RO"
         }
     },
     "amp": {
@@ -447,19 +460,6 @@
     },
     "newsletter": {
         "newsletter_show_badge": {
-            "defaultValue": "true",
-            "validations": {
-                "isEmpty": false,
-                "isIn": [
-                    [
-                        "true",
-                        "false"
-                    ]
-                ]
-            },
-            "type": "boolean"
-        },
-        "newsletter_show_header": {
             "defaultValue": "true",
             "validations": {
                 "isEmpty": false,
@@ -590,6 +590,14 @@
         "editor_default_email_recipients_filter": {
             "defaultValue": "all",
             "type": "string"
+        },
+        "editor_is_launch_complete": {
+            "defaultValue": "false",
+            "validations": {
+                "isEmpty": false,
+                "isIn": [["true", "false"]]
+            },
+            "type": "boolean"
         }
     }
 }

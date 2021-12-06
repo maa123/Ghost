@@ -7,7 +7,8 @@ jobs:
   automate:
     runs-on: ubuntu-18.04
     env:
-      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      RELEASE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_NOTIFICATION_URL: ${{ secrets.RELEASE_NOTIFICATION_URL }}
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       FORCE_COLOR: 1
     steps:
@@ -16,8 +17,11 @@ jobs:
           fetch-depth: 0
           submodules: true
       - uses: actions/setup-node@v2
+        env:
+          FORCE_COLOR: 0
         with:
           node-version: '14'
+          cache: yarn
 
       - run: yarn
       - run: grunt release --skip-tests

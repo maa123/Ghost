@@ -2,9 +2,13 @@ const _ = require('lodash');
 const Promise = require('bluebird');
 const db = require('../../data/db');
 const commands = require('../schema').commands;
-const ghostVersion = require('../../lib/ghost-version');
-const i18n = require('../../../shared/i18n');
+const ghostVersion = require('@tryghost/version');
+const tpl = require('@tryghost/tpl');
 const errors = require('@tryghost/errors');
+
+const messages = {
+    errorExportingData: 'Error exporting data'
+};
 
 const {
     TABLES_ALLOWLIST,
@@ -58,7 +62,7 @@ const doExport = async function doExport(options) {
     } catch (err) {
         throw new errors.DataExportError({
             err: err,
-            context: i18n.t('errors.data.export.errorExportingData')
+            context: tpl(messages.errorExportingData)
         });
     }
 };

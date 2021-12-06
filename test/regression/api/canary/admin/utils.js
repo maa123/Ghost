@@ -34,6 +34,8 @@ const expectedProperties = {
         'mobiledoc',
         'comment_id',
         'feature_image',
+        'feature_image_alt',
+        'feature_image_caption',
         'featured',
         'status',
         'visibility',
@@ -62,7 +64,8 @@ const expectedProperties = {
         'meta_title',
         'meta_description',
         'email_subject',
-        'frontmatter'
+        'frontmatter',
+        'email_only'
     ],
     user: [
         'id',
@@ -199,6 +202,15 @@ module.exports = {
 
     doAuth(...args) {
         return testUtils.API.doAuth(`${API_URL}session/`, ...args);
+    },
+
+    async startGhost(overrides = {}) {
+        const defaults = {
+            backend: true,
+            frontend: false
+        };
+
+        return await testUtils.startGhost(Object.assign(defaults, overrides));
     },
 
     getValidAdminToken(endpoint, key) {

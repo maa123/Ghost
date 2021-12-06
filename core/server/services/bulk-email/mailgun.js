@@ -1,13 +1,13 @@
 const _ = require('lodash');
 const {URL} = require('url');
-const mailgun = require('mailgun-js');
-const logging = require('../../../shared/logging');
+const logging = require('@tryghost/logging');
 const configService = require('../../../shared/config');
-const settingsCache = require('../settings/cache');
+const settingsCache = require('../../../shared/settings-cache');
 
 const BATCH_SIZE = 1000;
 
 function createMailgun(config) {
+    const mailgun = require('mailgun-js');
     const baseUrl = new URL(config.baseUrl);
 
     return mailgun({

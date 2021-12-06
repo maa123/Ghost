@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const url = require('./utils/url');
 const typeGroupMapper = require('../../../../shared/serializers/input/utils/settings-filter-type-group-mapper');
-const settingsCache = require('../../../../../services/settings/cache');
+const settingsCache = require('../../../../../../shared/settings-cache');
 
 const DEPRECATED_SETTINGS = [
     'bulk_email_settings',
@@ -119,11 +119,13 @@ module.exports = {
             const settingType = settings[setting.key] ? settings[setting.key].type : '';
 
             //TODO: Needs to be removed once we get rid of all `object` type settings
+            // NOTE: this transformation is more related to the fact that internal API calls call
+            //       settings API with plain objects instead of stringified ones
             if (_.isObject(setting.value)) {
                 setting.value = JSON.stringify(setting.value);
             }
 
-            // @TODO: handle these transformations in a centralised API place (these rules should apply for ALL resources)
+            // @TODO: handle these transformations in a centralized API place (these rules should apply for ALL resources)
 
             // CASE: Ensure we won't forward strings, otherwise model events or model interactions can fail
             if (settingType === 'boolean' && (setting.value === '0' || setting.value === '1')) {

@@ -39,7 +39,7 @@ class DatabaseStateManager {
             await this.knexMigrator.isDatabaseOK();
             return state;
         } catch (error) {
-            // CASE: database has not yet been initialised
+            // CASE: database has not yet been initialized
             if (error.code === 'DB_NOT_INITIALISED') {
                 state = states.NEEDS_INITIALISATION;
                 return state;
@@ -59,8 +59,8 @@ class DatabaseStateManager {
 
             // CASE: database connection errors, unknown cases
             let errorToThrow = error;
-            if (!errors.utils.isIgnitionError(errorToThrow)) {
-                errorToThrow = new errors.GhostError({message: errorToThrow.message, err: errorToThrow});
+            if (!errors.utils.isGhostError(errorToThrow)) {
+                errorToThrow = new errors.InternalServerError({message: errorToThrow.message, err: errorToThrow});
             }
 
             throw errorToThrow;
@@ -94,8 +94,8 @@ class DatabaseStateManager {
             }
         } catch (error) {
             let errorToThrow = error;
-            if (!errors.utils.isIgnitionError(error)) {
-                errorToThrow = new errors.GhostError({message: errorToThrow.message, err: errorToThrow});
+            if (!errors.utils.isGhostError(error)) {
+                errorToThrow = new errors.InternalServerError({message: errorToThrow.message, err: errorToThrow});
             }
 
             throw errorToThrow;

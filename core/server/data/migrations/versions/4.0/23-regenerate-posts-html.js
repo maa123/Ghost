@@ -1,4 +1,4 @@
-const logging = require('../../../../../shared/logging');
+const logging = require('@tryghost/logging');
 const {createIrreversibleMigration} = require('../../utils');
 const mobiledocLib = require('../../../../lib/mobiledoc');
 const htmlToText = require('html-to-text');
@@ -17,6 +17,7 @@ module.exports = createIrreversibleMigration(async (knex) => {
         // pushing all queries into the query builder buffer in parallel
         // https://stackoverflow.com/questions/54105280/how-to-loop-through-multi-line-sql-query-and-use-them-in-knex-transactions
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const postIdRow of postIdRows) {
             const {id} = postIdRow;
             const [post] = await knex('posts')
@@ -30,10 +31,12 @@ module.exports = createIrreversibleMigration(async (knex) => {
                 mobiledoc = JSON.parse(post.mobiledoc || null);
 
                 if (!mobiledoc) {
-                    return logging.warn(`No mobiledoc for ${id}. Skipping.`);
+                    logging.warn(`No mobiledoc for ${id}. Skipping.`);
+                    continue;
                 }
             } catch (err) {
-                return logging.warn(`Invalid JSON structure for ${id}. Skipping`);
+                logging.warn(`Invalid JSON structure for ${id}. Skipping`);
+                continue;
             }
 
             const html = mobiledocLib.mobiledocHtmlRenderer.render(mobiledoc);

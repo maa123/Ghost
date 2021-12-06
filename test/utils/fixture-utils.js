@@ -10,11 +10,11 @@ const knexMigrator = new KnexMigrator();
 
 // Ghost Internals
 const models = require('../../core/server/models');
-const fixtureUtils = require('../../core/server/data/schema/fixtures/utils');
+const {fixtureManager} = require('../../core/server/data/schema/fixtures');
 const emailAnalyticsService = require('../../core/server/services/email-analytics');
 const permissions = require('../../core/server/services/permissions');
 const settingsService = require('../../core/server/services/settings');
-const settingsCache = require('../../core/server/services/settings/cache');
+const labsService = require('../../core/shared/labs');
 
 // Other Test Utilities
 const context = require('./fixtures/context');
@@ -370,8 +370,8 @@ const fixtures = {
     },
 
     permissionsFor: function permissionsFor(obj) {
-        let permsToInsert = _.cloneDeep(fixtureUtils.findModelFixtures('Permission', {object_type: obj}).entries);
-        const permsRolesToInsert = fixtureUtils.findPermissionRelationsForObject(obj).entries;
+        let permsToInsert = _.cloneDeep(fixtureManager.findModelFixtures('Permission', {object_type: obj}).entries);
+        const permsRolesToInsert = fixtureManager.findPermissionRelationsForObject(obj).entries;
         const actions = [];
         const permissionsRoles = {};
 
@@ -461,8 +461,13 @@ const fixtures = {
         return Promise.map(DataGenerator.forKnex.labels, function (label) {
             return models.Label.add(label, context.internal);
         }).then(function () {
-            let productsToInsert = fixtureUtils.findModelFixtures('Product').entries;
-            return Promise.map(productsToInsert, product => models.Product.add(product, context.internal));
+            let productsToInsert = fixtureManager.findModelFixtures('Product').entries;
+            return Promise.map(productsToInsert, async (product) => {
+                const found = await models.Product.findOne(product, context.internal);
+                if (!found) {
+                    await models.Product.add(product, context.internal);
+                }
+            });
         }).then(function () {
             return models.Product.findOne({}, context.internal);
         }).then(function (product) {
@@ -496,6 +501,14 @@ const fixtures = {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_prices), function (stripePrice) {
                 return models.StripePrice.add(stripePrice, context.internal);
             });
+        }).then(async function () {
+            // Add monthly/yearly prices to default product for testing
+            const defaultProduct = await models.Product.findOne({slug: 'default-product'}, context.internal);
+            return models.Product.edit({
+                ...defaultProduct.toJSON(),
+                monthly_price_id: DataGenerator.forKnex.stripe_prices[1].id,
+                yearly_price_id: DataGenerator.forKnex.stripe_prices[2].id
+            }, _.merge({id: defaultProduct.id}, context.internal));
         }).then(function () {
             return Promise.each(_.cloneDeep(DataGenerator.forKnex.stripe_customer_subscriptions), function (subscription) {
                 return models.StripeCustomerSubscription.add(subscription, context.internal);
@@ -528,6 +541,33 @@ const fixtures = {
         return Promise.map(DataGenerator.forKnex.snippets, function (snippet) {
             return models.Snippet.add(snippet, context.internal);
         });
+    },
+
+    insertCustomThemeSettings: function insertCustomThemeSettings() {
+        return Promise.map(DataGenerator.forKnex.custom_theme_settings, function (setting) {
+            return models.CustomThemeSetting.add(setting, context.internal);
+        });
+    },
+
+    async enableAllLabsFeatures() {
+        const labsValue = Object.fromEntries(labsService.WRITABLE_KEYS_ALLOWLIST.map(key => [key, true]));
+        const labsSetting = DataGenerator.forKnex.createSetting({
+            key: 'labs',
+            group: 'labs',
+            type: 'object',
+            value: JSON.stringify(labsValue)
+        });
+
+        const existingLabsSetting = await models.Settings.findOne({key: 'labs'});
+
+        if (existingLabsSetting) {
+            delete labsSetting.id;
+            await models.Settings.edit(labsSetting);
+        } else {
+            await models.Settings.add(labsSetting);
+        }
+
+        await settingsService.init();
     }
 };
 
@@ -566,7 +606,6 @@ const toDoList = {
         return fixtures.insertExtraTags();
     },
     settings: function populateSettings() {
-        settingsCache.shutdown();
         return settingsService.init();
     },
     'users:roles': function createUsersWithRoles() {
@@ -616,6 +655,12 @@ const toDoList = {
     },
     snippets: function insertSnippets() {
         return fixtures.insertSnippets();
+    },
+    'labs:enabled': function enableAllLabsFeatures() {
+        return fixtures.enableAllLabsFeatures();
+    },
+    custom_theme_settings: function insertCustomThemeSettings() {
+        return fixtures.insertCustomThemeSettings();
     }
 };
 
@@ -625,9 +670,9 @@ const toDoList = {
  * Takes the arguments from a setup function and turns them into an array of promises to fullfil
  *
  * This is effectively a list of instructions with regard to which fixtures should be setup for this test.
- *  * `default` - a special option which will cause the full suite of normal fixtures to be initialised
- *  * `perms:init` - initialise the permissions object after having added permissions
- *  * `perms:obj` - initialise permissions for a particular object type
+ *  * `default` - a special option which will cause the full suite of normal fixtures to be initialized
+ *  * `perms:init` - initialize the permissions object after having added permissions
+ *  * `perms:obj` - initialize permissions for a particular object type
  *  * `users:roles` - create a full suite of users, one per role
  * @param {Object} toDos
  */
@@ -637,7 +682,7 @@ const getFixtureOps = (toDos) => {
 
     const fixtureOps = [];
 
-    // Database initialisation
+    // Database initialization
     if (toDos.init || toDos.default) {
         fixtureOps.push(function initDB() {
             // skip adding all fixtures!
@@ -651,6 +696,8 @@ const getFixtureOps = (toDos) => {
         delete toDos.default;
         delete toDos.init;
     }
+
+    fixtureOps.push(toDoList['labs:enabled']);
 
     // Go through our list of things to do, and add them to an array
     _.each(toDos, function (value, toDo) {

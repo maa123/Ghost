@@ -1,4 +1,4 @@
-const debug = require('ghost-ignition').debug('utils:image-size');
+const debug = require('@tryghost/debug')('utils:image-size');
 const sizeOf = require('image-size');
 const probeSizeOf = require('probe-image-size');
 const url = require('url');
@@ -6,6 +6,11 @@ const path = require('path');
 const Promise = require('bluebird');
 const _ = require('lodash');
 const errors = require('@tryghost/errors');
+const tpl = require('@tryghost/tpl');
+
+const messages = {
+    invalidDimensions: 'Could not fetch image dimensions.'
+};
 
 // these are formats supported by image-size but not probe-image-size
 const FETCH_ONLY_FORMATS = [
@@ -13,9 +18,8 @@ const FETCH_ONLY_FORMATS = [
 ];
 
 class ImageSize {
-    constructor({config, i18n, storage, storageUtils, validator, urlUtils, request}) {
+    constructor({config, storage, storageUtils, validator, urlUtils, request}) {
         this.config = config;
-        this.i18n = i18n;
         this.storage = storage;
         this.storageUtils = storageUtils;
         this.validator = validator;
@@ -119,7 +123,7 @@ class ImageSize {
     // };
     // if the dimensions can be fetched, and rejects with error, if not.
     // ***
-    // In case we get a locally stored image, which is checked withing the `isLocalImage`
+    // In case we get a locally stored image, which is checked within the `isLocalImage`
     // function we switch to read the image from the local file storage with `getImageSizeFromStoragePath`.
     // In case the image is not stored locally and is missing the protocol (like //www.gravatar.com/andsoon),
     // we add the protocol and use urlFor() to get the absolute URL.
@@ -173,7 +177,7 @@ class ImageSize {
                 context: err.url || imagePath
             }));
         }).catch(function (err) {
-            if (errors.utils.isIgnitionError(err)) {
+            if (errors.utils.isGhostError(err)) {
                 return Promise.reject(err);
             }
 
@@ -210,9 +214,9 @@ class ImageSize {
         imagePath = this.urlUtils.urlFor('image', {image: imagePath}, true);
 
         // get the storage readable filePath
-        filePath = this.storageUtils.getLocalFileStoragePath(imagePath);
+        filePath = this.storageUtils.getLocalImagesStoragePath(imagePath);
 
-        return this.storage.getStorage()
+        return this.storage.getStorage('images')
             .read({path: filePath})
             .then((buf) => {
                 debug('Image fetched (storage):', filePath);
@@ -237,7 +241,7 @@ class ImageSize {
                     }
                 }));
             }).catch((err) => {
-                if (errors.utils.isIgnitionError(err)) {
+                if (errors.utils.isGhostError(err)) {
                     return Promise.reject(err);
                 }
 
@@ -263,7 +267,7 @@ class ImageSize {
         }
 
         const originalImagePath = path.join(dir, `${imageName}_o${imageNumber || ''}${ext}`);
-        const originalImageExists = await this.storage.getStorage().exists(originalImagePath);
+        const originalImageExists = await this.storage.getStorage('images').exists(originalImagePath);
 
         return this.getImageSizeFromStoragePath(originalImageExists ? originalImagePath : imagePath);
     }
@@ -316,7 +320,7 @@ class ImageSize {
                 });
             } catch (err) {
                 return reject(new errors.ValidationError({
-                    message: this.i18n.t('errors.utils.images.invalidDimensions', {
+                    message: tpl(messages.invalidDimensions, {
                         file: imagePath,
                         error: err.message
                     })

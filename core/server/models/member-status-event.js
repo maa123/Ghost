@@ -11,18 +11,23 @@ const MemberStatusEvent = ghostBookshelf.Model.extend({
     customQuery(qb, options) {
         if (options.aggregateStatusCounts) {
             if (options.limit || options.filter) {
-                throw new errors.IncorrectUsageError('aggregateStatusCounts does not work when passed a filter or limit');
+                throw new errors.IncorrectUsageError({
+                    message: 'aggregateStatusCounts does not work when passed a filter or limit'
+                });
             }
             const knex = ghostBookshelf.knex;
             return qb.clear('select')
                 .select(knex.raw('DATE(created_at) as date'))
                 .select(knex.raw(`SUM(
-                    CASE WHEN to_status IN ('paid', 'comped') THEN 1
-                    WHEN from_status IN ('paid', 'comped') THEN -1
-                    ELSE 0
-                    END
+                    CASE WHEN to_status='paid' THEN 1
+                    WHEN from_status='paid' THEN -1
+                    ELSE 0 END
                 ) as paid_delta`))
-                .select(knex.raw(`0 as comped_delta`))
+                .select(knex.raw(`SUM(
+                    CASE WHEN to_status='comped' THEN 1
+                    WHEN from_status='comped' THEN -1
+                    ELSE 0 END
+                ) as comped_delta`))
                 .select(knex.raw(`SUM(
                     CASE WHEN to_status='free' THEN 1
                     WHEN from_status='free' THEN -1
@@ -43,11 +48,11 @@ const MemberStatusEvent = ghostBookshelf.Model.extend({
         return options;
     },
     async edit() {
-        throw new errors.IncorrectUsageError('Cannot edit MemberStatusEvent');
+        throw new errors.IncorrectUsageError({message: 'Cannot edit MemberStatusEvent'});
     },
 
     async destroy() {
-        throw new errors.IncorrectUsageError('Cannot destroy MemberStatusEvent');
+        throw new errors.IncorrectUsageError({message: 'Cannot destroy MemberStatusEvent'});
     }
 });
 

@@ -1,5 +1,6 @@
 //@ts-check
-const debug = require('ghost-ignition').debug('api:canary:utils:serializers:output:products');
+const debug = require('@tryghost/debug')('api:canary:utils:serializers:output:products');
+const _ = require('lodash');
 
 const allowedIncludes = ['stripe_prices', 'monthly_price', 'yearly_price'];
 
@@ -20,14 +21,13 @@ module.exports = {
  * @returns {{products: SerializedProduct[], meta: PageMeta}}
  */
 function paginatedProducts(page, _apiConfig, frame) {
-    const requestedIncludes = frame.original && frame.original.options && frame.original.options.include || [];
-    const defaultIncludes = ['monthly_price', 'yearly_price'];
+    const requestedQueryIncludes = frame.original && frame.original.query && frame.original.query.include && frame.original.query.include.split(',') || [];
+    const requestedOptionsIncludes = frame.original && frame.original.options && frame.original.options.include || [];
     return {
         products: page.data.map((model) => {
             return cleanIncludes(
                 allowedIncludes,
-                requestedIncludes,
-                defaultIncludes,
+                requestedQueryIncludes.concat(requestedOptionsIncludes),
                 serializeProduct(model, frame.options, frame.apiType)
             );
         }),
@@ -43,14 +43,13 @@ function paginatedProducts(page, _apiConfig, frame) {
  * @returns {{products: SerializedProduct[]}}
  */
 function singleProduct(model, _apiConfig, frame) {
-    const requestedIncludes = frame.original && frame.original.options && frame.original.options.include || [];
-    const defaultIncludes = ['monthly_price', 'yearly_price'];
+    const requestedQueryIncludes = frame.original && frame.original.query && frame.original.query.include && frame.original.query.include.split(',') || [];
+    const requestedOptionsIncludes = frame.original && frame.original.options && frame.original.options.include || [];
     return {
         products: [
             cleanIncludes(
                 allowedIncludes,
-                requestedIncludes,
-                defaultIncludes,
+                requestedQueryIncludes.concat(requestedOptionsIncludes),
                 serializeProduct(model, frame.options, frame.apiType)
             )
         ]
@@ -77,8 +76,9 @@ function serializeProduct(product, options, apiType) {
         created_at: json.created_at,
         updated_at: json.updated_at,
         stripe_prices: json.stripePrices ? json.stripePrices.map(price => serializeStripePrice(price, hideStripeData)) : null,
-        monthly_price: json.monthlyPrice ? serializeStripePrice(json.monthlyPrice, hideStripeData) : null,
-        yearly_price: json.yearlyPrice ? serializeStripePrice(json.yearlyPrice, hideStripeData) : null
+        monthly_price: serializeStripePrice(json.monthlyPrice, hideStripeData),
+        yearly_price: serializeStripePrice(json.yearlyPrice, hideStripeData),
+        benefits: json.benefits || null
     };
 
     return serialized;
@@ -91,6 +91,9 @@ function serializeProduct(product, options, apiType) {
  * @returns {StripePrice}
  */
 function serializeStripePrice(data, hideStripeData) {
+    if (_.isEmpty(data)) {
+        return null;
+    }
     const price = {
         id: data.id,
         stripe_product_id: data.stripe_product_id,
@@ -123,17 +126,15 @@ function serializeStripePrice(data, hideStripeData) {
  *
  * @returns {Data}
  */
-function cleanIncludes(allowed, requested, defaults, data) {
+function cleanIncludes(allowed, requested, data) {
     const cleaned = {
         ...data
     };
-
     for (const include of allowed) {
-        if (!requested.includes(include) && !defaults.includes(include)) {
+        if (!requested.includes(include)) {
             delete cleaned[include];
         }
     }
-
     return cleaned;
 }
 
@@ -164,6 +165,16 @@ function createSerializer(debugString, serialize) {
  * @prop {StripePrice[]} [stripe_prices]
  * @prop {StripePrice} [monthly_price]
  * @prop {StripePrice} [yearly_price]
+ * @prop {Benefit[]} [benefits]
+ */
+
+/**
+ * @typedef {object} Benefit
+ * @prop {string} id
+ * @prop {string} name
+ * @prop {string} slug
+ * @prop {Date} created_at
+ * @prop {Date} updated_at
  */
 
 /**

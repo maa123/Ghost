@@ -1,7 +1,7 @@
 const {chunk} = require('lodash');
 const ObjectID = require('bson-objectid');
 const {createTransactionalMigration} = require('../../utils');
-const logging = require('../../../../../shared/logging');
+const logging = require('@tryghost/logging');
 
 module.exports = createTransactionalMigration(
     async function up(knex) {
@@ -42,6 +42,7 @@ module.exports = createTransactionalMigration(
 
         const eventChunks = chunk(allEvents, chunkSize);
 
+        // eslint-disable-next-line no-restricted-syntax
         for (const events of eventChunks) {
             await knex.insert(events).into('members_subscribe_events');
         }

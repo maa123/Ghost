@@ -1,12 +1,22 @@
 const ObjectId = require('bson-objectid').default;
-const logging = require('../../../shared/logging');
+const logging = require('@tryghost/logging');
+const errors = require('@tryghost/errors');
+const tpl = require('@tryghost/tpl');
 const commands = require('../schema').commands;
-const Promise = require('bluebird');
 
 const MIGRATION_USER = 1;
 
+const messages = {
+    permissionRoleActionError: 'Cannot {action} permission({permission}) with role({role}) - {resource} does not exist'
+};
+
 /**
  * Creates a migrations which will add a new table from schema.js to the database
+ * @param {string} name - table name
+ * @param {Object} tableSpec - copy of table schema definition as defined in schema.js at the moment of writing the migration,
+ * this parameter MUST be present, otherwise @daniellockyer will hunt you down
+ *
+ * @returns {Object} migration object returning config/up/down properties
  */
 function addTable(name, tableSpec) {
     return createNonTransactionalMigration(
@@ -133,9 +143,14 @@ function addPermissionToRole(config) {
             }).first();
 
             if (!permission) {
-                throw new Error(
-                    `Cannot add permission(${config.permission}) to role(${config.role}) - permission does not exist`
-                );
+                throw new errors.InternalServerError({
+                    message: tpl(messages.permissionRoleActionError, {
+                        action: 'add',
+                        permission: config.permission,
+                        role: config.role,
+                        resource: 'permission'
+                    })
+                });
             }
 
             const role = await connection('roles').where({
@@ -143,9 +158,14 @@ function addPermissionToRole(config) {
             }).first();
 
             if (!role) {
-                throw new Error(
-                    `Cannot add permission(${config.permission}) to role(${config.role}) - role does not exist`
-                );
+                throw new errors.InternalServerError({
+                    message: tpl(messages.permissionRoleActionError, {
+                        action: 'add',
+                        permission: config.permission,
+                        role: config.role,
+                        resource: 'role'
+                    })
+                });
             }
 
             const existingRelation = await connection('permissions_roles').where({
@@ -171,9 +191,8 @@ function addPermissionToRole(config) {
             }).first();
 
             if (!permission) {
-                throw new Error(
-                    `Cannot remove permission(${config.permission}) from role(${config.role}) - permission does not exist`
-                );
+                logging.warn(`Removing permission(${config.permission}) from role(${config.role}) - Permission not found.`);
+                return;
             }
 
             const role = await connection('roles').where({
@@ -181,9 +200,8 @@ function addPermissionToRole(config) {
             }).first();
 
             if (!role) {
-                throw new Error(
-                    `Cannot remove permission(${config.permission}) from role(${config.role}) - role does not exist`
-                );
+                logging.warn(`Removing permission(${config.permission}) from role(${config.role}) - Role not found.`);
+                return;
             }
 
             const existingRelation = await connection('permissions_roles').where({
@@ -391,12 +409,63 @@ function createDropColumnMigration(table, column, columnDefinition) {
     );
 }
 
+/**
+ * Creates a migration which will insert a new setting in settings table
+ * @param {object} settingSpec - setting key, value, group and type
+ *
+ * @returns {Object} migration object returning config/up/down properties
+ */
+function addSetting({key, value, type, group}) {
+    return createTransactionalMigration(
+        async function up(connection) {
+            const settingExists = await connection('settings')
+                .where('key', '=', key)
+                .first();
+            if (settingExists) {
+                logging.warn(`Skipping adding setting: ${key} - setting already exists`);
+                return;
+            }
+
+            logging.info(`Adding setting: ${key}`);
+            const now = connection.raw('CURRENT_TIMESTAMP');
+
+            return connection('settings')
+                .insert({
+                    id: ObjectId().toHexString(),
+                    key,
+                    value,
+                    group,
+                    type,
+                    created_at: now,
+                    created_by: MIGRATION_USER,
+                    updated_at: now,
+                    updated_by: MIGRATION_USER
+                });
+        },
+        async function down(connection) {
+            const settingExists = await connection('settings')
+                .where('key', '=', key)
+                .first();
+            if (!settingExists) {
+                logging.warn(`Skipping dropping setting: ${key} - setting does not exist`);
+                return;
+            }
+
+            logging.info(`Dropping setting: ${key}`);
+            return connection('settings')
+                .where('key', '=', key)
+                .del();
+        }
+    );
+}
+
 module.exports = {
     addTable,
     dropTables,
     addPermission,
     addPermissionToRole,
     addPermissionWithRoles,
+    addSetting,
     createTransactionalMigration,
     createNonTransactionalMigration,
     createIrreversibleMigration,

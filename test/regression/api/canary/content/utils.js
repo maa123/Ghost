@@ -19,6 +19,8 @@ const expectedProperties = {
         'html',
         'comment_id',
         'feature_image',
+        'feature_image_alt',
+        'feature_image_caption',
         'featured',
         'visibility',
         'email_recipient_filter',
@@ -98,5 +100,14 @@ module.exports = {
     },
     getValidKey() {
         return testUtils.DataGenerator.Content.api_keys[1].secret;
+    },
+
+    async startGhost(overrides = {}) {
+        const defaults = {
+            backend: true,
+            frontend: false
+        };
+
+        return await testUtils.startGhost(Object.assign(defaults, overrides));
     }
 };
